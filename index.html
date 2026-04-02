@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Ngăn Trình duyệt rò rỉ nguồn gốc trang, giúp bypass Google API 403 -->
+  <meta name="referrer" content="no-referrer" />
+  <title>Chatbot Nam Dược</title>
+  <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&family=Nunito:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Nunito', sans-serif;
+      background: transparent !important;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 100%;
+      flex: 1;                  /* Tự dãn fill toàn bộ body (kể cả trong iframe) */
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      position: relative;       /* Anchor cho modal overlay */
+      border-radius: 18px;      /* Bo 4 góc như app messenger */
+      overflow: hidden;         /* Cắt header/footer gọn vào góc bo */
+      box-shadow: 0 4px 32px rgba(0,0,0,0.10);
+    }
+
+    .card-header {
+      background: linear-gradient(135deg, #4e9a35 0%, #5db840 100%);
+      padding: 15px 20px;
+      text-align: center;
+    }
+    .card-header h2 {
+      font-family: 'Baloo 2', cursive;
+      font-size: 19px;
+      font-weight: 800;
+      color: #fff;
+    }
+
+    .chat-area {
+      background: #f7f3eb;
+      padding: 16px 14px 12px;
+      flex: 1; /* Tự động dãn toàn bộ không gian còn lại */
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+      overflow-y: auto;
+    }
+
+    .leaf {
+      position: absolute;
+      top: 10px; right: 14px;
+      font-size: 22px;
+      opacity: 0.22;
+      cursor: pointer;
+    }
+
+    .bot-bubble {
+      background: #dff0d1;
+      border-radius: 14px;
+      border-bottom-left-radius: 4px;
+      padding: 12px 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #2d3a1e;
+      max-width: 88%;
+      font-weight: 500;
+    }
+
+    .user-row { display: flex; justify-content: flex-end; }
+    .user-bubble {
+      background: #4e9a35;
+      color: #fff;
+      border-radius: 14px;
+      border-bottom-right-radius: 4px;
+      padding: 10px 14px;
+      font-size: 14px;
+      line-height: 1.6;
+      max-width: 80%;
+      font-weight: 500;
+    }
+
+    .product-link {
+        display: block;
+        margin-top: 8px;
+        margin-bottom: 4px;
+        padding: 10px 16px;
+        background: linear-gradient(135deg, #fff2e0, #ffe4c4);
+        color: #d66a00;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 700;
+        border: 1px solid #ffcf9e;
+        box-shadow: 0 2px 8px rgba(214, 106, 0, 0.15);
+        transition: transform 0.2s, box-shadow 0.2s;
+        font-family: 'Nunito', sans-serif;
+        font-size: 14px;
+        white-space: normal;
+        word-break: break-word;
+        line-height: 1.5;
+    }
+    .product-link:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(214, 106, 0, 0.25);
+        background: linear-gradient(135deg, #ffe4c4, #ffd0a0);
+    }
+
+    /* === MỚI: Giao diện thẻ Sản phẩm (Rich UI Card) === */
+    .ui-products-carousel {
+        display: flex;
+        overflow-x: auto;
+        gap: 12px;
+        padding-bottom: 12px;
+        margin-top: 4px;
+        margin-bottom: 8px;
+        max-width: 100%;
+        scroll-snap-type: x mandatory;
+        /* Scrollbar ẩn nhưng vẫn vuốt được */
+        -ms-overflow-style: none;  
+        scrollbar-width: none;  
+    }
+    .ui-products-carousel::-webkit-scrollbar {
+        display: none;
+    }
+    .ui-product-card {
+        scroll-snap-align: start;
+        flex: 0 0 70%; /* 70% để lòi cạnh card tiếp theo */
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 4px 18px rgba(0,0,0,0.08);
+        padding: 12px;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid #eef3e8;
+        position: relative;
+        text-decoration: none;
+    }
+    .ui-product-img {
+        width: 100%;
+        height: 160px;
+        border-radius: 8px;
+        object-fit: cover;
+        background: #f7f3eb;
+        border: 1px solid #f0f0f0;
+        margin-bottom: 12px;
+    }
+    .ui-product-info {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        flex: 1;
+    }
+    .ui-product-title {
+        font-size: 14.5px;
+        font-weight: 700;
+        color: #2c3e1e;
+        line-height: 1.35;
+        margin-bottom: 6px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    .ui-product-price {
+        font-size: 16px;
+        font-weight: 800;
+        color: #e5532b;
+    }
+    .ui-product-btn {
+        margin-top: 10px;
+        background: linear-gradient(135deg, #ff9800, #f57c00);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 800;
+        padding: 8px 0;
+        width: 100%;
+        border-radius: 20px;
+        text-align: center;
+        border: none;
+        box-shadow: 0 2px 8px rgba(245, 124, 0, 0.25);
+    }
+
+
+    .hero-emoji {
+      font-size: 64px;
+      line-height: 1;
+      text-align: center;
+      padding: 12px 0 4px;
+    }
+
+    .typing-row { display: none; }
+    .typing-row.show { display: flex; align-items: center; }
+    .dots {
+      background: #dff0d1;
+      border-radius: 14px;
+      border-bottom-left-radius: 4px;
+      padding: 10px 16px;
+      display: flex; gap: 4px; align-items: center;
+    }
+    .dots span {
+      width: 7px; height: 7px; background: #5db840;
+      border-radius: 50%;
+      animation: dot 1.2s infinite;
+    }
+    .dots span:nth-child(2) { animation-delay: .2s; }
+    .dots span:nth-child(3) { animation-delay: .4s; }
+    @keyframes dot {
+      0%,60%,100% { transform: translateY(0); opacity:.4; }
+      30% { transform: translateY(-5px); opacity:1; }
+    }
+
+    .sound-wave {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 2px;
+      height: 14px;
+    }
+    .sound-wave span {
+      display: block;
+      width: 3px;
+      height: 100%;
+      background: #5db840;
+      border-radius: 3px;
+      animation: wave 1.2s ease-in-out infinite;
+    }
+    .sound-wave span:nth-child(2) { animation-delay: -1.0s; }
+    .sound-wave span:nth-child(3) { animation-delay: -0.8s; }
+    .sound-wave span:nth-child(4) { animation-delay: -0.6s; }
+
+    @keyframes wave {
+      0%, 40%, 100% { transform: scaleY(0.4); }
+      20% { transform: scaleY(1); }
+    }
+
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 12px 14px 20px;
+      background: #fff;
+      border-top: 1.5px solid #d4e8be;
+    }
+    .input-row input {
+      flex: 1;
+      min-width: 0;
+      border: 1.5px solid #c8dfaa;
+      border-radius: 50px;
+      padding: 9px 16px;
+      font-family: 'Nunito', sans-serif;
+      font-size: 14px;
+      color: #3a4a25;
+      background: #f7f3eb;
+      outline: none;
+      transition: border-color .2s;
+    }
+    .input-row input::placeholder { color: #9aaa80; }
+    .input-row input:focus { border-color: #5db840; }
+    .icon-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 20px;
+      width: 34px; height: 34px;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: 50%;
+      transition: background .15s;
+    }
+    .icon-btn:hover { background: #edf7e5; }
+    .icon-btn.send {
+      color: #fff;
+      background: linear-gradient(135deg, #5db840, #3a7d2c);
+    }
+    .icon-btn.send:hover {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    .float-bot {
+      position: fixed;
+      bottom: 20px; left: 20px;
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, #5db840, #3a7d2c);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      box-shadow: 0 3px 16px rgba(58,125,44,0.3);
+      cursor: pointer;
+    }
+
+    /* ====== VOICE MODAL ====== */
+    #voiceModal {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.97);
+      backdrop-filter: blur(6px);
+      z-index: 200;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      border-radius: inherit;
+      animation: fadeIn .2s ease;
+    }
+    #voiceModal.active { display: flex; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(12px);} to { opacity:1; transform:none; } }
+
+    .vm-mic-ring {
+      width: 88px; height: 88px;
+      border-radius: 50%;
+      background: #f0f0f0;
+      display: flex; align-items: center; justify-content: center;
+      position: relative;
+    }
+    .vm-mic-ring.active::before {
+      content: '';
+      position: absolute;
+      inset: -8px;
+      border-radius: 50%;
+      border: 3px solid #5db840;
+      animation: pulse-ring 1.2s ease-out infinite;
+      opacity: .6;
+    }
+    @keyframes pulse-ring {
+      0%   { transform: scale(1);   opacity: .6; }
+      100% { transform: scale(1.4); opacity: 0; }
+    }
+    .vm-mic-ring .vm-mic-icon {
+      font-size: 36px;
+    }
+    .vm-timer {
+      font-family: 'Nunito', sans-serif;
+      font-size: 18px;
+      font-weight: 700;
+      color: #5db840;
+      letter-spacing: 1px;
+    }
+    .vm-waveform {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      height: 48px;
+      width: 80%;
+      max-width: 280px;
+    }
+    .vm-waveform .bar {
+      width: 4px;
+      border-radius: 3px;
+      background: #5db840;
+      height: 6px;
+      transition: height .08s ease;
+    }
+    .vm-actions {
+      display: flex;
+      width: 80%;
+      max-width: 280px;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 4px;
+    }
+    .vm-btn-cancel {
+      background: none; border: none; cursor: pointer;
+      font-size: 28px; color: #aaa;
+      transition: color .15s;
+    }
+    .vm-btn-cancel:hover { color: #e44; }
+    .vm-btn-send {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, #5db840, #3a7d2c);
+      border: none; cursor: pointer;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 4px 14px rgba(58,125,44,0.35);
+      transition: transform .15s;
+    }
+    .vm-btn-send:hover { transform: scale(1.07); }
+    .vm-btn-send svg { fill: #fff; }
+    .vm-hint {
+      font-size: 13px;
+      color: #aaa;
+      font-family: 'Nunito', sans-serif;
+    }
+  </style>
+
+</head>
+<body>
+
+<div class="card">
+  <div class="card-header">
+    <h2>Tư vấn với chatbot</h2>
+  </div>
+
+  <div class="chat-area" id="chatArea">
+    <span class="leaf">🍃</span>
+
+
+
+
+    <div class="typing-row" id="typingRow">
+      <div class="dots"><span></span><span></span><span></span></div>
+    </div>
+  </div>
+
+  <div class="input-row">
+    <button class="icon-btn" id="speakBtn" title="Bật/tắt đọc">🔊</button>
+    <input type="text" id="userInput" placeholder="Nhập câu hỏi của bạn..." />
+    <button class="icon-btn send" onclick="sendMessage()" title="Gửi tin nhắn">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+    </button>
+    <button class="icon-btn" id="micBtn" title="Nói (Micro)">🎤</button>
+  </div>
+
+  <!-- VOICE MODAL (ben trong .card de giu position: absolute) -->
+  <div id="voiceModal">
+    <div class="vm-mic-ring" id="vmMicRing">
+      <span class="vm-mic-icon">🎙️</span>
+    </div>
+    <div class="vm-timer" id="vmTimer">0:00</div>
+    <div class="vm-waveform" id="vmWaveform"></div>
+    <p class="vm-hint" id="vmHint">Đang lắng nghe...</p>
+    <div class="vm-actions">
+      <button class="vm-btn-cancel" id="vmCancel" title="Hủy">↺</button>
+      <button class="vm-btn-send" id="vmSend" title="Gửi">
+        <svg width="20" height="20" viewBox="0 0 24 24"><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // === CẤU HÌNH API ===
+  // Đường dẫn cố định chạy xuyên Tường lửa Ngrok cho mọi thiết bị
+  const API_URL = "https://alfredia-giggliest-semihostilely.ngrok-free.dev";
+
+  const chatArea  = document.getElementById('chatArea');
+  const userInput = document.getElementById('userInput');
+  const typingRow = document.getElementById('typingRow');
+
+  let sessionId   = null;
+  let isWaiting   = false;
+
+  // ── Visitor ID (lưu localStorage để theo dõi khách quay lại) ──
+  let visitorId = localStorage.getItem("lnq_visitor_id");
+  if (!visitorId) {
+    visitorId = "web_" + Math.random().toString(36).substring(2, 10);
+    localStorage.setItem("lnq_visitor_id", visitorId);
+  }
+
+
+
+  // ── Thêm bong bóng tin nhắn ──
+  function addBubble(text, role) {
+    const wrap = document.createElement('div');
+    
+    let html = text;
+    if (role === 'bot') {
+        // Gắn số thứ tự vào tiêu đề: "1.\n\n**Title**" → "1. <b>Title</b>"
+        html = html.replace(/(\d+\.)\s*\n+\s*\*\*([^*]+)\*\*/g, '$1 <b>$2</b>');
+        // Xử lý xuống dòng: Tự động ngắt đoạn (thêm <br><br>) sau dấu chấm/hỏi/than nếu tiếp theo là chữ in hoa
+        html = html.replace(/([.!?])\s+(?=\p{Lu})/gu, "$1<br><br>");
+        // Trùng khớp với mọi ký tự xuống dòng gốc từ AI
+        html = html.replace(/\n/g, '<br>');
+    }
+    
+    // Chuyển markdown link: [text](url) -> thẻ a nút bấm nổi
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="product-link">$1</a>');
+    
+    // Chuyển **chữ** → <b>chữ</b>
+    html = html.replace(/\*\*(.*?)\*\*/g, "<b>$1</b>");
+    
+    if (role === 'user') {
+      wrap.className = 'user-row';
+      wrap.innerHTML = `<div class="user-bubble">${html}</div>`;
+    } else {
+      wrap.innerHTML = `<div class="bot-bubble">${html}</div>`;
+    }
+    chatArea.insertBefore(wrap, typingRow);
+    chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+  // ── MỚI: Thêm bộ lướt thẻ Rich UI Product Carousel ──
+  function renderProductCarousel(products) {
+      if (!products || products.length === 0) return;
+      
+      const wrap = document.createElement('div');
+      wrap.className = 'ui-products-carousel';
+      wrap.style.flexShrink = '0'; // Đảm bảo trên điện thoại Flexbox không bóp nghẹt block này
+      
+      // Ảnh mặc định nếu CSDL chưa có ảnh
+      const defaultImg = "https://laonhaque.vn/wp-content/uploads/2021/08/logo-lao-nha-que.png";
+      
+      let html = '';
+      products.forEach(product => {
+          const imgSrc = product.image_url || product.image || defaultImg;
+          html += `
+              <a href="${product.url}" target="_blank" class="ui-product-card">
+                  <img src="${imgSrc}" class="ui-product-img" 
+                       onload="document.getElementById('chatArea').scrollTop = document.getElementById('chatArea').scrollHeight;" 
+                       onerror="this.src='${defaultImg}'" alt="Product Image"/>
+                  <div class="ui-product-info">
+                      <div class="ui-product-title">${product.name}</div>
+                      <div class="ui-product-price">${product.price || 'Xem chi tiết'}</div>
+                      <div class="ui-product-btn">🛒 Đặt ngay</div>
+                  </div>
+              </a>
+          `;
+      });
+      
+      wrap.innerHTML = html;
+      chatArea.insertBefore(wrap, typingRow);
+      chatArea.scrollTop = chatArea.scrollHeight;
+  }
+
+
+  // ── Gọi API khởi tạo phiên (tự chạy khi trang tải) ──
+  async function startSession() {
+    typingRow.classList.add('show');
+    try {
+      const res = await fetch(`${API_URL}/api/chat/start`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true' 
+        },
+        body: JSON.stringify({ visitor_id: visitorId })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      sessionId = data.session_id;
+
+      typingRow.classList.remove('show');
+      addBubble(data.message, 'bot');
+    } catch (err) {
+      console.error("startSession:", err);
+      typingRow.classList.remove('show');
+      addBubble('⚠️ Không kết nối được máy chủ. Bác kiểm tra xem server Python đã chạy chưa nhé.', 'bot');
+    }
+  }
+
+  // ── Gửi tin nhắn ──
+  async function sendMessage(prefill) {
+    const text = (typeof prefill === 'string' ? prefill : userInput.value).trim();
+    if (!text || isWaiting || !sessionId) return;
+    userInput.value = '';
+    isWaiting = true;
+
+    addBubble(text, 'user');
+    typingRow.classList.add('show');
+    chatArea.scrollTop = chatArea.scrollHeight;
+
+    try {
+      const res = await fetch(`${API_URL}/api/chat/message`, {
+        method: 'POST',
+        headers: { 
+            'Content-Type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
+        },
+        body: JSON.stringify({ session_id: sessionId, message: text })
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      typingRow.classList.remove('show');
+      addBubble(data.message, 'bot');
+      
+      // Bước 2: Nếu has_pitch = true, bật typing + fetch Sales Pitch từ background thread
+      if (data.has_pitch) {
+          typingRow.classList.add('show');
+          chatArea.scrollTop = chatArea.scrollHeight;
+          try {
+              // AbortController 28s để ngăn browser tự kill kết nối
+              const pitchAbort = new AbortController();
+              const pitchTimeout = setTimeout(() => pitchAbort.abort(), 28000);
+              const pitchRes = await fetch(`${API_URL}/api/chat/sales_pitch`, {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'ngrok-skip-browser-warning': 'true'
+                  },
+                  body: JSON.stringify({ session_id: sessionId }),
+                  signal: pitchAbort.signal
+              });
+              clearTimeout(pitchTimeout);
+              typingRow.classList.remove('show');
+              if (pitchRes.ok) {
+                  const pitchData = await pitchRes.json();
+                  if (pitchData.message) {
+                      addBubble(pitchData.message, 'bot');
+                  }
+                  if (pitchData.products && Array.isArray(pitchData.products) && pitchData.products.length > 0) {
+                      renderProductCarousel(pitchData.products);
+                  }
+              }
+          } catch(pitchErr) {
+              console.error("Sales pitch fetch failed:", pitchErr);
+              typingRow.classList.remove('show');
+          }
+      }
+    } catch (err) {
+      console.error("sendMessage:", err);
+      typingRow.classList.remove('show');
+      addBubble('Đã có lỗi xảy ra. Vui lòng thử lại sau nhé! 🙏', 'bot');
+    } finally {
+      isWaiting = false;
+    }
+  }
+
+
+
+  // ── Bàn phím Enter ──
+  userInput.addEventListener('keydown', e => { if (e.key === 'Enter') sendMessage(); });
+
+  // ── Voice: Speech-to-Text v2 (Modal + AudioContext Waveform) ──
+  const micBtn     = document.getElementById('micBtn');
+  const voiceModal = document.getElementById('voiceModal');
+  const vmMicRing  = document.getElementById('vmMicRing');
+  const vmTimer    = document.getElementById('vmTimer');
+  const vmWaveform = document.getElementById('vmWaveform');
+  const vmHint     = document.getElementById('vmHint');
+  const vmCancel   = document.getElementById('vmCancel');
+  const vmSend     = document.getElementById('vmSend');
+
+  // Tao 20 thanh song am
+  const NUM_BARS = 24;
+  for (let i = 0; i < NUM_BARS; i++) {
+    const b = document.createElement('div');
+    b.classList.add('bar');
+    vmWaveform.appendChild(b);
+  }
+  const bars = vmWaveform.querySelectorAll('.bar');
+
+  const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec, animFrame, timerInterval;
+  let finalTranscript = '';
+  let recSeconds = 0;
+
+  function fmtTime(s) { return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; }
+
+  function startWaveform() {
+    let phase = 0;
+    function draw() {
+      animFrame = requestAnimationFrame(draw);
+      phase += 0.15;
+      bars.forEach((bar, i) => {
+        // Hieu ung luon song mo phong khi dang noi (khong khoa micro cung cung luc)
+        const baseHeight = 6;
+        const wave = Math.sin(phase + i * 0.4) * 0.5 + 0.5; // 0 toi 1
+        const noise = Math.random();
+        const active = (wave * 0.7 + noise * 0.3); 
+        const h = baseHeight + active * 38; // Max cao ~44px
+        bar.style.height = h + 'px';
+        bar.style.opacity = active > 0.2 ? '1' : '0.4';
+      });
+    }
+    draw();
+  }
+
+  function stopWaveform() {
+    cancelAnimationFrame(animFrame);
+    bars.forEach(b => { b.style.height = '6px'; b.style.opacity = '0.35'; });
+  }
+
+  async function openVoiceModal() {
+    finalTranscript = '';
+    recSeconds = 0;
+    vmTimer.textContent = fmtTime(0);
+    vmHint.textContent = 'Dang lang nghe...';
+    vmMicRing.classList.add('active');
+    voiceModal.classList.add('active');
+
+    // Lay stream micro bi xung dot tren dien thoai nen ta se dung hieu ung mo phong
+    startWaveform();
+
+    // Bat dau dem gio
+    timerInterval = setInterval(() => {
+      recSeconds++;
+      vmTimer.textContent = fmtTime(recSeconds);
+    }, 1000);
+
+    // Bat nhan dang giong noi
+    if (SpeechRec) {
+      rec = new SpeechRec();
+      rec.lang = 'vi-VN';
+      rec.interimResults = true;  // Hien chu NGAY KHI dang noi, khong doi den cuoi
+      rec.continuous = false;
+      rec.onresult = e => {
+        // Lay ket qua tam thoi (interim) de hien thi live trong modal
+        let interim = '';
+        finalTranscript = '';
+        for (let r of e.results) {
+          if (r.isFinal) finalTranscript += r[0].transcript;
+          else interim += r[0].transcript;
+        }
+        const display = finalTranscript || interim;
+        // Chi hien thi trong modal, KHONG ghi vao o input phia duoi
+        vmHint.textContent = '"' + display + '"';
+      };
+      let autoSendTimer = null;
+      rec.onend = () => {
+        clearInterval(timerInterval);
+        stopWaveform();
+        vmMicRing.classList.remove('active');
+        if (finalTranscript) {
+          vmHint.textContent = '"' + finalTranscript + '" — Dang gui...';
+          // Tu dong gui sau 1.2 giay de nguoi dung kip doc lai
+          autoSendTimer = setTimeout(() => {
+            const text = finalTranscript.trim();
+            closeVoiceModal();
+            if (text) sendMessage(text); // Truyen thang, khong can qua userInput
+          }, 1200);
+        } else {
+          vmHint.textContent = 'Khong nghe ro, bam nut Huy roi thu lai nhe!';
+        }
+      };
+      // Luu autoSendTimer de nut Huy co the huy bo
+      voiceModal._cancelAutoSend = () => { clearTimeout(autoSendTimer); };
+      rec.onerror = (e) => {
+        clearInterval(timerInterval);
+        stopWaveform();
+        vmMicRing.classList.remove('active');
+        let msg = '';
+        switch(e.error) {
+          case 'not-allowed':
+          case 'permission-denied':
+            msg = 'Trinh duyet chua cap quyen Micro. Bac vao Cai dat trinh duyet -> Cho phep Micro roi thu lai nhe!';
+            break;
+          case 'no-speech':
+            msg = 'Khong nghe thay giong noi. Bac thu noi to hon hoac kiem tra micro nhe!';
+            break;
+          case 'network':
+            msg = 'Loi mang. Tinh nang nay can ket noi internet de nhan dang giong noi.';
+            break;
+          case 'not-supported':
+            msg = 'Trinh duyet nay khong ho tro nhan dang giong noi.';
+            break;
+          default:
+            msg = 'Khong nghe duoc. Bac thu lai nhe! (Loi: ' + e.error + ')';
+        }
+        vmHint.textContent = msg;
+      };
+      rec.start();
+    }
+  }
+
+  function closeVoiceModal() {
+    clearInterval(timerInterval);
+    stopWaveform();
+    vmMicRing.classList.remove('active');
+    voiceModal.classList.remove('active');
+    if (rec) { try { rec.stop(); } catch(e){} rec = null; }
+    finalTranscript = '';
+  }
+
+  if (micBtn) {
+    if (SpeechRec) {
+      micBtn.addEventListener('click', openVoiceModal);
+    } else {
+      // An nut mic neu trinh duyet khong ho tro (Firefox, mot so trinh duyet cu)
+      micBtn.style.display = 'none';
+    }
+  }
+  vmCancel.addEventListener('click', () => {
+    if (voiceModal._cancelAutoSend) voiceModal._cancelAutoSend(); // Huy bo tu dong gui
+    userInput.value = ''; // Xoa text da noi
+    closeVoiceModal();
+  });
+  vmSend.addEventListener('click', () => {
+    if (voiceModal._cancelAutoSend) voiceModal._cancelAutoSend();
+    const text = finalTranscript.trim(); // Dung truc tiep tu bien noi, khong qua input
+    closeVoiceModal();
+    if (text) sendMessage(text);
+    else userInput.focus();
+  });
+
+  // ── Voice: Text-to-Speech (nút 🔊) ──
+  const speakBtn = document.getElementById('speakBtn');
+  const WAVE_HTML = '<div class="sound-wave"><span></span><span></span><span></span><span></span></div>';
+  let isSpeaking = false;
+
+  // ── Hệ Trợ Lý Dự Phòng (Cloud TTS) ──
+  let currentCloudAudio = null;
+  let isCloudPlaying = false;
+
+  function stopCloudTTS() {
+      isCloudPlaying = false;
+      if (currentCloudAudio) {
+          currentCloudAudio.pause();
+          currentCloudAudio = null;
+      }
+  }
+
+  async function playCloudTTS(text, onStart, onEnd) {
+      stopCloudTTS();
+      let cleanText = text.replace(/[\*\_\~\|\"]/g, '').trim();
+      
+      // Thuật toán cắt câu thông minh, theo đúng nhịp thở (dấu chấm, phẩy) để đọc mạch lạc
+      function splitText(str, maxLength) {
+          let result = [];
+          // Bước 1: Tách theo Dấu chấm, chấm hỏi, chấm than, xuống dòng
+          let sentences = str.match(/[^.!?\n]+[.!?\n]*/g) || [str];
+          for(let s of sentences) {
+              s = s.trim();
+              if(!s) continue;
+              if(s.length <= maxLength) {
+                  result.push(s);
+              } else {
+                  // Bước 2: Tách theo Dấu phẩy nếu câu dài hơn 100 chữ
+                  let phrases = s.match(/[^,;:]+[,;:]*/g) || [s];
+                  for(let p of phrases) {
+                      p = p.trim();
+                      if(!p) continue;
+                      if(p.length <= maxLength) {
+                          result.push(p);
+                      } else {
+                          // Bước 3: Ép cắt theo khoảng trắng nếu đoạn không có dấu câu nào dài quá
+                          let words = p.split(/\s+/);
+                          let cur = "";
+                          for(let w of words) {
+                              if((cur + " " + w).length <= maxLength) cur += (cur ? " " : "") + w;
+                              else { if(cur) result.push(cur); cur = w; }
+                          }
+                          if(cur) result.push(cur);
+                      }
+                  }
+              }
+          }
+          return result;
+      }
+      
+      const chunks = splitText(cleanText, 100);
+
+      if (chunks.length === 0) return;
+      if (onStart) onStart();
+      isCloudPlaying = true;
+      
+      // Khởi tạo và Tải trước (Preload) TOÀN BỘ các đoạn âm thanh cùng lúc
+      // Chế độ này giúp xoá sổ hoàn toàn độ trễ (khựng) khi chuyển câu
+      const audioQueue = chunks.map(chunk => {
+          const url = `https://translate.googleapis.com/translate_tts?client=gtx&ie=UTF-8&tl=vi&q=${encodeURIComponent(chunk)}`;
+          const audio = new Audio(url);
+          audio.preload = "auto";
+          audio.playbackRate = 1.25; // Tăng tốc độ đọc lên 25% chạy cho nhanh gọn
+          return audio;
+      });
+      
+      for (let i = 0; i < audioQueue.length; i++) {
+          if (!isCloudPlaying) break;
+          currentCloudAudio = audioQueue[i];
+          
+          await new Promise(resolve => {
+              currentCloudAudio.onended = resolve;
+              currentCloudAudio.onerror = (e) => {
+                  console.error("Lỗi Google TTS chunk: ", chunks[i]);
+                  resolve(); 
+              };
+              currentCloudAudio.play().catch(err => {
+                  console.warn("Autoplay block hoặc Lỗi phát: ", err.message);
+                  resolve(); 
+              });
+          });
+      }
+      
+      isCloudPlaying = false;
+      currentCloudAudio = null;
+      if (onEnd) onEnd();
+  }
+
+  // ── Lấy danh sách giọng đọc triệt để (Await/Promise) ──
+  function getVoicesAsync() {
+    return new Promise(resolve => {
+      let voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        resolve(voices);
+      } else {
+        window.speechSynthesis.onvoiceschanged = () => resolve(window.speechSynthesis.getVoices());
+      }
+    });
+  }
+  // Mồi tải ngầm ngay khi web vừa mở
+  if (window.speechSynthesis) getVoicesAsync();
+
+  if (speakBtn) {
+    speakBtn.title = 'Đọc câu trả lời gần nhất';
+    speakBtn.addEventListener('click', async () => {
+      // ── Bẻ khoá tính năng chặn âm thanh (Autoplay Unlock) của Chrome ──
+      const unlockAudio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+      unlockAudio.play().catch(e => {}); // Phát file im lặng 0 giây để trình duyệt "cấp phép" cho script chạy âm thanh lát nữa
+      
+      if (!window.speechSynthesis) return;
+
+      // Nếu đang đọc thì tắt
+      if (isSpeaking) {
+        window.speechSynthesis.cancel();
+        stopCloudTTS();
+        isSpeaking = false;
+        speakBtn.innerHTML = '🔊';
+        speakBtn.style.background = '';
+        return;
+      }
+
+      // Đọc bong bóng của bot cuối cùng
+      const botBubbles = chatArea.querySelectorAll('.bot-bubble');
+      if (botBubbles.length > 0) {
+        const lastHtml = botBubbles[botBubbles.length - 1].innerHTML;
+        const plainText = lastHtml.replace(/<[^>]*>/g, '').trim();
+        if (!plainText) return;
+
+        window.speechSynthesis.cancel();
+        stopCloudTTS();
+        const utt = new SpeechSynthesisUtterance(plainText);
+        utt.lang = 'vi-VN'; // Ép ngôn ngữ chuẩn trước
+        utt.rate = 1.25;    // Tăng tốc độ đọc của hệ thống địa phương lên 25%
+        
+        // Đợi lấy 100% trúng danh sách giọng đọc (tối đa đợi 1 giây)
+        const voices = await Promise.race([
+            getVoicesAsync(),
+            new Promise(r => setTimeout(() => r([]), 1000))
+        ]);
+        
+        // Tìm giọng Tiếng Việt tốt nhất
+        const vnVoices = voices.filter(v => v.lang.toLowerCase().includes('vi') || v.name.toLowerCase().includes('viet'));
+        const onStartTTS = () => {
+          isSpeaking = true;
+          speakBtn.innerHTML = WAVE_HTML;
+          speakBtn.style.background = '#edf7e5';
+        };
+        const onEndTTS = () => {
+          isSpeaking = false;
+          speakBtn.innerHTML = '🔊';
+          speakBtn.style.background = '';
+        };
+
+        if (vnVoices.length > 0) {
+            // CÓ GIỌNG TIẾNG VIỆT TRÊN MÁY -> Dùng API gốc cho tự nhiên
+            const premium = vnVoices.find(v => {
+                const n = v.name.toLowerCase();
+                return n.includes('natural') || n.includes('online') || n.includes('google');
+            });
+            utt.voice = premium || vnVoices[0];
+            utt.onstart = onStartTTS;
+            utt.onend = onEndTTS;
+            utt.onerror = onEndTTS;
+            window.speechSynthesis.speak(utt);
+        } else {
+            // KHÔNG CÓ GIỌNG TIẾNG VIỆT -> Bật tính năng Dự phòng Đám mây (Cloud TTS)
+            playCloudTTS(plainText, onStartTTS, onEndTTS);
+        }
+      }
+    });
+  }
+
+  // ── Mẹo nhỏ: Kiểm tra danh sách ALL giọng đọc trong máy ──
+  const leaf = document.querySelector('.leaf');
+  if (leaf) {
+    leaf.title = "Bấm để kiểm tra Hệ thống Giọng đọc";
+    leaf.addEventListener('click', async () => {
+      let voices = await getVoicesAsync();
+      if (!voices || voices.length === 0) {
+          alert('Không tìm thấy giọng đọc nào trong máy tính/trình duyệt của Bác!');
+          return;
+      }
+      let vnVoices = voices.filter(v => v.lang.toLowerCase().includes('vi') || v.name.toLowerCase().includes('viet'));
+      let msg = `TỔNG CỘNG: ${voices.length} giọng đọc.\n`;
+      msg += `GIỌNG TIẾNG VIỆT TÌM THẤY: ${vnVoices.length}\n\n`;
+      if (vnVoices.length > 0) {
+        msg += vnVoices.map(v => `- ${v.name} [${v.lang}]`).join('\n');
+      } else {
+        msg += "MÁY BÁC KHÔNG CÓ BẤT KỲ GIỌNG TIẾNG VIỆT NÀO! (System missing vi-VN TTS)";
+      }
+      alert(msg);
+    });
+  }
+
+  // ── Tự động khởi động khi trang tải ──
+  startSession();
+</script>
+</body>
+</html>
+
